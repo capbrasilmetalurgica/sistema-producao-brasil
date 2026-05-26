@@ -2174,12 +2174,18 @@ async function ghGet() {
       'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + GH_FILE,
       { headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) { console.warn('ghGet HTTP error:', res.status); return null; }
     const data = await res.json();
-    const decoded = JSON.parse(atob(data.content.replace(/\n/g,'')));
+    // Decodifica base64 com suporte a UTF-8
+    const b64 = data.content.replace(/\n/g, '');
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const jsonStr = new TextDecoder('utf-8').decode(bytes);
+    const decoded = JSON.parse(jsonStr);
     decoded._sha = data.sha;
     return decoded;
-  } catch(e) { return null; }
+  } catch(e) { console.error('ghGet erro:', e.message); return null; }
 }
 
 async function ghSave(payload) {
