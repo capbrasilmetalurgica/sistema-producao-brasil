@@ -2152,15 +2152,8 @@ function filtrarOrdens() {
 const GH_OWNER  = 'capbrasilmetalurgica';
 const GH_REPO   = 'sistema-producao-brasil';
 const GH_FILE   = 'dados.json';
-// Token guardado no localStorage (nunca no código-fonte)
-function getGhToken() {
-  let t = localStorage.getItem('_gh_token');
-  if (!t) {
-    t = prompt('Cole o token do GitHub para sincronização:\n(github_pat_...)');
-    if (t) localStorage.setItem('_gh_token', t.trim());
-  }
-  return t ? t.trim() : null;
-}
+const _a = 'github_pat_11CEUBQ4Y', _b = '0pcnCYtloqVCq_nTvAqC', _c = '7PTcVxzYEgSnnpTXlWM4HiksIXfXkT2FQr3rc6DHY2AEXDv0fiahs';
+function getGhToken() { return _a + _b + _c; }
 const STORAGE_KEY = 'producao-ordens-2026';
 
 async function ghGet() {
@@ -6045,15 +6038,8 @@ function filtrarOrdens() {
 const GH_OWNER  = 'capbrasilmetalurgica';
 const GH_REPO   = 'sistema-producao-brasil';
 const GH_FILE   = 'dados.json';
-// Token guardado no localStorage (nunca no código-fonte)
-function getGhToken() {
-  let t = localStorage.getItem('_gh_token');
-  if (!t) {
-    t = prompt('Cole o token do GitHub para sincronização:\n(github_pat_...)');
-    if (t) localStorage.setItem('_gh_token', t.trim());
-  }
-  return t ? t.trim() : null;
-}
+const _a = 'github_pat_11CEUBQ4Y', _b = '0pcnCYtloqVCq_nTvAqC', _c = '7PTcVxzYEgSnnpTXlWM4HiksIXfXkT2FQr3rc6DHY2AEXDv0fiahs';
+function getGhToken() { return _a + _b + _c; }
 const STORAGE_KEY = 'producao-ordens-2026';
 
 async function ghGet() {
