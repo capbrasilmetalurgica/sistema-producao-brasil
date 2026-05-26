@@ -2275,19 +2275,22 @@ function iniciarPolling() {
     try {
       const ghData = await ghGet();
       if (!ghData || !ghData.ordens) return;
-      const newHash = ghData.ordens.map(function(o){ return o.id + '|' + o.boas; }).join('||');
+      const newHash = ghData.ordens.map(function(o){ return o.id+'|'+o.boas+'|'+o.refugo; }).join('||');
       const oldHash = localStorage.getItem('_gh_hash') || '';
-      if (newHash === oldHash) return;
+      if (newHash === oldHash) return; // nada mudou
+      // Dados novos no servidor — atualiza tela
       localStorage.setItem('_gh_hash', newHash);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ghData));
       ordemCount = ghData.ordemCount || ghData.ordens.length;
       renderOrdens(ghData.ordens);
       popularFiltroProdutos();
       atualizarDashboard();
       gerarAlertas();
-      _setSyncUltima('Sync às ' + new Date().toLocaleTimeString('pt-BR'));
+      _setSyncUltima('🔄 Sync às ' + new Date().toLocaleTimeString('pt-BR'));
       _piscarDot();
+      console.log('Polling: dados atualizados do GitHub');
     } catch(e) { /* silencioso */ }
-  }, 10000); // a cada 10 segundos
+  }, 8000); // a cada 8 segundos
 }
 
 async function testarConexao() {
@@ -2373,25 +2376,28 @@ function getOrdensData() {
 }
 
 async function carregarStorage() {
-  setStatus('⏳ Carregando...', 'salvando');
-  try {
-    // Tenta carregar do GitHub primeiro
-    const ghData = await ghGet();
-    if (ghData && ghData.ordens && ghData.ordens.length > 0) {
-      ordemCount = ghData.ordemCount || ghData.ordens.length;
-      renderOrdens(ghData.ordens);
-      popularFiltroProdutos();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(ghData));
-      setStatus('✅ ' + ghData.ordens.length + ' ordem(ns) carregada(s)', 'ok');
-      _setSyncUltima('GitHub às ' + new Date().toLocaleTimeString('pt-BR'));
-      atualizarDashboard();
-      gerarAlertas();
-      iniciarPolling();
-      return;
-    }
-  } catch(e) { console.warn('GitHub indisponível:', e.message); }
+  setStatus('⏳ Carregando do servidor...', 'salvando');
 
-  // Fallback localStorage
+  // SEMPRE busca do GitHub primeiro (fonte de verdade)
+  const ghData = await ghGet();
+
+  if (ghData && ghData.ordens && ghData.ordens.length > 0) {
+    ordemCount = ghData.ordemCount || ghData.ordens.length;
+    renderOrdens(ghData.ordens);
+    popularFiltroProdutos();
+    // Atualiza localStorage com dados do GitHub
+    const novoHash = ghData.ordens.map(o => o.id + '|' + o.boas).join('||');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ghData));
+    localStorage.setItem('_gh_hash', novoHash);
+    setStatus('✅ ' + ghData.ordens.length + ' ordem(ns) carregada(s) do servidor', 'ok');
+    _setSyncUltima('Atualizado às ' + new Date().toLocaleTimeString('pt-BR'));
+    atualizarDashboard();
+    gerarAlertas();
+    iniciarPolling();
+    return;
+  }
+
+  // GitHub vazio ou offline — usa localStorage
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -2400,7 +2406,7 @@ async function carregarStorage() {
         ordemCount = data.ordemCount || data.ordens.length;
         renderOrdens(data.ordens);
         popularFiltroProdutos();
-        setStatus('💾 Dados locais carregados', 'ok');
+        setStatus('💾 Dados locais — sem conexão com servidor', 'salvando');
         atualizarDashboard();
         gerarAlertas();
         iniciarPolling();
@@ -2409,11 +2415,11 @@ async function carregarStorage() {
     }
   } catch(e) {}
 
-  // Dados de exemplo
-  ordemCount = ORDENS_DEFAULT.length;
-  renderOrdens(ORDENS_DEFAULT);
+  // Nenhum dado — exibe vazio
+  ordemCount = 0;
+  renderOrdens([]);
   popularFiltroProdutos();
-  setStatus('💾 Dados de exemplo carregados', 'ok');
+  setStatus('📋 Nenhuma ordem cadastrada', 'ok');
   atualizarDashboard();
   gerarAlertas();
   iniciarPolling();
