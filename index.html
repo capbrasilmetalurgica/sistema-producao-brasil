@@ -6152,61 +6152,8 @@ function iniciarPolling() {
       _setSyncUltima('Sync às ' + new Date().toLocaleTimeString('pt-BR'));
       _piscarDot();
       return;
-      /* LEGACY SUPABASE DISABLED
-      const ordens = await supaFetch('/ordens?select=*&order=updated_at.asc');
-      if (!ordens || !Array.isArray(ordens) || ordens.length === 0) return;
-      const supaHash = ordens.map(o=>o.id+'|'+o.updated_at).join('||');
-      const hashSalvo = localStorage.getItem('_supa_hash') || '';
-      if (supaHash === hashSalvo) return; // nada mudou
-      localStorage.setItem('_supa_hash', supaHash);
-
-      // Pega IDs que estão na tela mas não no Supabase (ordens locais ainda não enviadas)
-      const supaIds = new Set(ordens.map(o => String(o.id)));
-      const tabelaOrdens = getOrdensData();
-      const apenasLocais = tabelaOrdens.filter(o => !supaIds.has(String(o.id)));
-
-      // Envia as ordens locais ausentes ao Supabase
-      for (const o of apenasLocais) {
-        const row = {
-          id: String(o.id).trim(), produto: o.produto||'', cliente: o.cliente||'',
-          funcionario: o.funcionario||'', data: o.data||'',
-          boas: String(o.boas||'0'), refugo: String(o.refugo||'0'),
-          qualidade: o.qualidade||'0%', custo: o.custo||'',
-          status: o.status||'Registrada', updated_at: new Date().toISOString()
-        };
-        try {
-          await fetch(SUPA_URL + '/rest/v1/ordens', {
-            method: 'POST',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
-              'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify(row)
-          });
-        } catch(e) {}
-      }
-
-      // Busca novamente para ter tudo junto
-      const todas = apenasLocais.length > 0
-        ? await supaFetch('/ordens?select=*&order=updated_at.asc')
-        : ordens;
-
-      const ordensFmt = (todas||ordens).map(function(o) {
-        return {
-          id: o.id||'', produto: o.produto||'', cliente: o.cliente||'',
-          funcionario: o.funcionario||'', data: o.data||'',
-          boas: o.boas||'0', refugo: o.refugo||'0',
-          quebra: o.quebra||'0', pctQuebra: o.pct_quebra||'0,00%',
-          qualidade: o.qualidade||'0%', custo: o.custo||'',
-          status: o.status||'Registrada'
-        };
-      });
-
-      renderOrdens(ordensFmt);
-      atualizarDashboard();
-      gerarAlertas();
-      _setSyncUltima('Atualizado às ' + new Date().toLocaleTimeString('pt-BR'));
-      _piscarDot();
     } catch(e) { /* silencioso */ }
-  }, 5000);
+  }, 10000);
 }
 
 async function testarConexao() {
