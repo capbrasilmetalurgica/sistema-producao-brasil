@@ -2551,6 +2551,7 @@ function entrarSistema() {
   document.getElementById('op-data').valueAsDate = new Date();
   carregarStorage();
   carregarProdutos();
+  carregarProdutosGH();
   // popularFiltroProdutos called after render
   tentarReconectarArquivo();
 }
@@ -3580,7 +3581,50 @@ function excluirProduto(i) {
 
 function salvarProdutosLocal() {
   try {
-    localStorage.setItem(PROD_KEY, JSON.stringify({ produtos, savedAt: new Date().toLocaleString('pt-BR') }));
+    const payload = { produtos, savedAt: new Date().toLocaleString('pt-BR') };
+    localStorage.setItem(PROD_KEY, JSON.stringify(payload));
+    // Salva no GitHub também
+    ghSaveProdutos(payload);
+  } catch(e) {}
+}
+
+async function ghSaveProdutos(payload) {
+  try {
+    const sha = await ghGetSha('produtos.json');
+    const body = { message: 'sync produtos', content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+    if (sha) body.sha = sha;
+    await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch(e) {}
+}
+
+async function ghGetSha(file) {
+  try {
+    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + file, {
+      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (res.ok) { const d = await res.json(); return d.sha; }
+  } catch(e) {}
+  return null;
+}
+
+async function carregarProdutosGH() {
+  try {
+    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
+      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (res.ok) {
+      const d = await res.json();
+      const data = JSON.parse(atob(d.content.replace(/\n/g,'')));
+      if (data.produtos && data.produtos.length) {
+        produtos = data.produtos;
+        localStorage.setItem(PROD_KEY, JSON.stringify(data));
+        renderProdutos();
+      }
+    }
   } catch(e) {}
 }
 
@@ -3591,9 +3635,18 @@ function carregarProdutos() {
       const data = JSON.parse(raw);
       if (data.produtos && data.produtos.length) {
         produtos = data.produtos;
+      } else {
+        produtos = JSON.parse(JSON.stringify(produtosDefault));
+        salvarProdutosLocal();
       }
+    } else {
+      // Primeiro acesso: carrega defaults e salva
+      produtos = JSON.parse(JSON.stringify(produtosDefault));
+      salvarProdutosLocal();
     }
-  } catch(e) {}
+  } catch(e) {
+    produtos = JSON.parse(JSON.stringify(produtosDefault));
+  }
   renderProdutos();
 }
 
