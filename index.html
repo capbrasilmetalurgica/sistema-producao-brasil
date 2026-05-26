@@ -2366,6 +2366,53 @@ function getOrdensData() {
   return ordens;
 }
 
+async function carregarStorage() {
+  setStatus('⏳ Carregando...', 'salvando');
+  try {
+    // Tenta carregar do GitHub primeiro
+    const ghData = await ghGet();
+    if (ghData && ghData.ordens && ghData.ordens.length > 0) {
+      ordemCount = ghData.ordemCount || ghData.ordens.length;
+      renderOrdens(ghData.ordens);
+      popularFiltroProdutos();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ghData));
+      setStatus('✅ ' + ghData.ordens.length + ' ordem(ns) carregada(s)', 'ok');
+      _setSyncUltima('GitHub às ' + new Date().toLocaleTimeString('pt-BR'));
+      atualizarDashboard();
+      gerarAlertas();
+      iniciarPolling();
+      return;
+    }
+  } catch(e) { console.warn('GitHub indisponível:', e.message); }
+
+  // Fallback localStorage
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.ordens && data.ordens.length > 0) {
+        ordemCount = data.ordemCount || data.ordens.length;
+        renderOrdens(data.ordens);
+        popularFiltroProdutos();
+        setStatus('💾 Dados locais carregados', 'ok');
+        atualizarDashboard();
+        gerarAlertas();
+        iniciarPolling();
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Dados de exemplo
+  ordemCount = ORDENS_DEFAULT.length;
+  renderOrdens(ORDENS_DEFAULT);
+  popularFiltroProdutos();
+  setStatus('💾 Dados de exemplo carregados', 'ok');
+  atualizarDashboard();
+  gerarAlertas();
+  iniciarPolling();
+}
+
 async function salvarStorage() {
   _salvando = true;
   setStatus('⏳ Salvando...', 'salvando');
