@@ -2837,16 +2837,54 @@ function fecharModal() {
 }
 
 function confirmarExclusao() {
+  const idsParaExcluir = [];
+
   if (trParaExcluir) {
+    if (trParaExcluir.dataset.id) idsParaExcluir.push(trParaExcluir.dataset.id);
     trParaExcluir.remove();
     trParaExcluir = null;
   } else {
     // bulk
-    document.querySelectorAll('.ordem-check:checked').forEach(cb => cb.closest('tr').remove());
+    document.querySelectorAll('.ordem-check:checked').forEach(function(cb) {
+      const tr = cb.closest('tr');
+      if (tr.dataset.id) idsParaExcluir.push(tr.dataset.id);
+      tr.remove();
+    });
     desmarcarTodas();
   }
+
   fecharModal();
   _posExclusao();
+
+  // Deleta do Supabase
+  if (idsParaExcluir.length > 0) {
+    excluirDoSupabase(idsParaExcluir);
+  }
+}
+
+async function excluirDoSupabase(ids) {
+  for (const id of ids) {
+    try {
+      const res = await fetch(SUPA_URL + '/rest/v1/ordens?id=eq.' + encodeURIComponent(id.trim()), {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Prefer': 'return=minimal'
+        }
+      });
+      if (res.ok) {
+        console.log('Ordem ' + id + ' excluída do Supabase');
+      } else {
+        const txt = await res.text();
+        console.warn('Erro ao excluir ' + id + ':', res.status, txt);
+      }
+    } catch(e) {
+      console.warn('Falha ao excluir ordem ' + id + ' do Supabase:', e.message);
+    }
+  }
+  // Atualiza hash para evitar que o polling restaure as ordens deletadas
+  localStorage.removeItem('_supa_hash');
 }
 
 function excluirSelecionadas() {
