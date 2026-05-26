@@ -3586,60 +3586,54 @@ function salvarProdutosLocal() {
   try {
     const payload = { produtos, savedAt: new Date().toLocaleString('pt-BR') };
     localStorage.setItem(PROD_KEY, JSON.stringify(payload));
-    // Atualiza total na tela
     const total = document.getElementById('total-produtos');
     if (total) total.textContent = produtos.length + ' produto(s)';
-    // Salva no GitHub
+    setStatus('⏳ Salvando produtos...', 'salvando');
     ghSaveProdutos(payload).then(function(ok) {
-      if (ok) setStatus('✅ Produtos salvos — ' + new Date().toLocaleTimeString('pt-BR'), 'ok');
-      else setStatus('💾 Produtos salvos localmente', 'salvando');
+      setStatus(ok ? '✅ Produtos salvos — ' + new Date().toLocaleTimeString('pt-BR') : '💾 Salvo localmente', ok ? 'ok' : 'salvando');
+    }).catch(function() {
+      setStatus('💾 Salvo localmente', 'salvando');
     });
-  } catch(e) { console.error('Erro ao salvar produtos:', e); }
+  } catch(e) { console.error('salvarProdutosLocal:', e); }
 }
 
 async function ghSaveProdutos(payload) {
+  // Reutiliza a mesma lógica do ghSave mas para produtos.json
   try {
-    const sha = await ghGetSha('produtos.json');
-    const body = { message: 'sync produtos ' + new Date().toISOString(), content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
-    if (sha) body.sha = sha;
-    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
-      method: 'PUT',
-      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return res.ok;
-  } catch(e) { return false; }
-}
+    let sha = null;
+    const checkRes = await fetch(
+      'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json',
+      { headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (checkRes.ok) { const d = await checkRes.json(); sha = d.sha; }
 
-async function ghGetSha(file) {
-  try {
-    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + file, {
-      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (res.ok) { const d = await res.json(); return d.sha; }
-  } catch(e) {}
-  return null;
+    const body = { message: 'sync produtos', content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(
+      'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json',
+      { method: 'PUT', headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    return res.ok;
+  } catch(e) { console.warn('ghSaveProdutos erro:', e.message); return false; }
 }
 
 async function carregarProdutosGH() {
   try {
-    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
-      headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (res.ok) {
-      const d = await res.json();
-      const data = JSON.parse(atob(d.content.replace(/\n/g,'')));
-      if (data.produtos && data.produtos.length) {
-        produtos = data.produtos;
-        localStorage.setItem(PROD_KEY, JSON.stringify(data));
-        // Só renderiza se estiver na página de produtos
-        if (document.getElementById('page-produtos')?.classList.contains('active')) {
-          renderProdutos();
-        }
-        console.log('Produtos carregados do GitHub:', produtos.length);
-      }
+    const res = await fetch(
+      'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json',
+      { headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (!res.ok) return;
+    const d = await res.json();
+    const data = JSON.parse(atob(d.content.replace(/\n/g,'')));
+    if (data.produtos && data.produtos.length) {
+      produtos = data.produtos;
+      localStorage.setItem(PROD_KEY, JSON.stringify(data));
+      renderProdutos();
+      console.log('✅ Produtos GH:', produtos.length);
     }
-  } catch(e) { console.warn('Produtos GH indisponível:', e.message); }
+  } catch(e) { console.warn('carregarProdutosGH erro:', e.message); }
 }
 
 function carregarProdutos() {
