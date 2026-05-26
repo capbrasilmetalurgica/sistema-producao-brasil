@@ -2193,13 +2193,17 @@ async function ghSave(payload) {
     if (res.ok) { const d = await res.json(); sha = d.sha; }
   } catch(e) {}
 
-  const body = { message: 'sync ordens ' + new Date().toISOString(), content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+  const body = { message: 'sync ordens ' + new Date().toISOString(), content: btoa(encodeURIComponent(JSON.stringify(payload)).replace(/%([0-9A-F]{2})/g, function(m,p){ return String.fromCharCode(parseInt(p,16)); })) };
   if (sha) body.sha = sha;
 
   const res = await fetch(
     'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + GH_FILE,
     { method: 'PUT', headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('ghSave erro HTTP ' + res.status + ':', errText);
+  }
   return res.ok;
 }
 
@@ -2380,11 +2384,13 @@ async function salvarStorage() {
       _setSyncUltima('Salvo às ' + hora);
       _piscarDot();
     } else {
-      setStatus('💾 Salvo localmente — GitHub indisponível', 'salvando');
+      setStatus('⚠️ Erro ao salvar no GitHub — dados locais OK', 'erro');
+      console.error('ghSave retornou false');
     }
   } catch(e) {
+    console.error('salvarStorage erro:', e);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ordens: getOrdensData(), ordemCount, savedAt: new Date().toLocaleString('pt-BR') }));
-    setStatus('💾 Salvo localmente', 'salvando');
+    setStatus('⚠️ Erro: ' + e.message, 'erro');
   } finally {
     _salvando = false;
   }
@@ -3624,7 +3630,7 @@ async function ghSaveProdutos(payload) {
     );
     if (checkRes.ok) { const d = await checkRes.json(); sha = d.sha; }
 
-    const body = { message: 'sync produtos', content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+    const body = { message: 'sync produtos', content: btoa(encodeURIComponent(JSON.stringify(payload)).replace(/%([0-9A-F]{2})/g, function(m,p){ return String.fromCharCode(parseInt(p,16)); })) };
     if (sha) body.sha = sha;
 
     const res = await fetch(
