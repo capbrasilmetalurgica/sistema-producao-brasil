@@ -1494,6 +1494,9 @@ function goPage(id) {
     if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(id)) n.classList.add('active');
   });
   renderCharts(id);
+  // Renderiza produtos sempre que entrar na página
+  if (id === 'produtos') { renderProdutos(); }
+  if (id === 'funcionarios' || id === 'fornecedores') { /* ok */ }
 }
 
 function toggleForm(id) {
@@ -3583,22 +3586,29 @@ function salvarProdutosLocal() {
   try {
     const payload = { produtos, savedAt: new Date().toLocaleString('pt-BR') };
     localStorage.setItem(PROD_KEY, JSON.stringify(payload));
-    // Salva no GitHub também
-    ghSaveProdutos(payload);
-  } catch(e) {}
+    // Atualiza total na tela
+    const total = document.getElementById('total-produtos');
+    if (total) total.textContent = produtos.length + ' produto(s)';
+    // Salva no GitHub
+    ghSaveProdutos(payload).then(function(ok) {
+      if (ok) setStatus('✅ Produtos salvos — ' + new Date().toLocaleTimeString('pt-BR'), 'ok');
+      else setStatus('💾 Produtos salvos localmente', 'salvando');
+    });
+  } catch(e) { console.error('Erro ao salvar produtos:', e); }
 }
 
 async function ghSaveProdutos(payload) {
   try {
     const sha = await ghGetSha('produtos.json');
-    const body = { message: 'sync produtos', content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+    const body = { message: 'sync produtos ' + new Date().toISOString(), content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
     if (sha) body.sha = sha;
-    await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
+    const res = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/produtos.json', {
       method: 'PUT',
       headers: { 'Authorization': 'token ' + getGhToken(), 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-  } catch(e) {}
+    return res.ok;
+  } catch(e) { return false; }
 }
 
 async function ghGetSha(file) {
@@ -3622,10 +3632,14 @@ async function carregarProdutosGH() {
       if (data.produtos && data.produtos.length) {
         produtos = data.produtos;
         localStorage.setItem(PROD_KEY, JSON.stringify(data));
-        renderProdutos();
+        // Só renderiza se estiver na página de produtos
+        if (document.getElementById('page-produtos')?.classList.contains('active')) {
+          renderProdutos();
+        }
+        console.log('Produtos carregados do GitHub:', produtos.length);
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('Produtos GH indisponível:', e.message); }
 }
 
 function carregarProdutos() {
