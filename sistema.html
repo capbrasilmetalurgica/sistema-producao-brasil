@@ -1496,8 +1496,11 @@ function goPage(id) {
   renderCharts(id);
   // Renderiza produtos sempre que entrar na página
   if (id === 'produtos') {
-    renderProdutos(); // Renderiza dados locais imediatamente
-    carregarProdutosGH(); // Atualiza do GitHub em background
+    // Garante que a página está visível antes de renderizar
+    setTimeout(function() {
+      renderProdutos();
+      carregarProdutosGH();
+    }, 50);
   }
   if (id === 'funcionarios' || id === 'fornecedores') { /* ok */ }
 }
@@ -3488,26 +3491,37 @@ function statusBadge(s) {
 }
 
 function renderProdutos() {
-  const tbody = document.getElementById('tbody-produtos');
-  const total = document.getElementById('total-produtos');
-  if (!tbody) return;
+  // Tenta encontrar o tbody — se não estiver visível ainda, agenda retry
+  var tbody = document.getElementById('tbody-produtos');
+  var total = document.getElementById('total-produtos');
+  if (!tbody) {
+    console.warn('tbody-produtos não encontrado, tentando em 300ms...');
+    setTimeout(renderProdutos, 300);
+    return;
+  }
   tbody.innerHTML = '';
+  if (!produtos || produtos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--cinza-texto);padding:20px;">Nenhum produto cadastrado</td></tr>';
+    if (total) total.textContent = '0 produto(s)';
+    return;
+  }
   produtos.forEach(function(p, i) {
-    const tr = document.createElement('tr');
+    var tr = document.createElement('tr');
     tr.innerHTML =
-      '<td><strong>' + p.codigo + '</strong></td>' +
-      '<td>' + p.resp + '</td>' +
-      '<td>R$' + p.preco + '</td>' +
-      '<td>' + p.meta + '</td>' +
-      '<td>R$' + p.preco + '</td>' +
-      '<td>' + statusBadge(p.status) + '</td>' +
+      '<td><strong>' + (p.codigo||'') + '</strong></td>' +
+      '<td>' + (p.resp||'') + '</td>' +
+      '<td>R$' + (p.preco||'0') + '</td>' +
+      '<td>' + (p.meta||'—') + '</td>' +
+      '<td>R$' + (p.preco||'0') + '</td>' +
+      '<td>' + statusBadge(p.status||'Ativo') + '</td>' +
       '<td style="display:flex;gap:6px;">' +
         '<button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="editarProduto(' + i + ')">✏️ Editar</button>' +
-        '<button class="btn-del" onclick="excluirProduto(' + i + ')" title="Excluir produto">✕</button>' +
+        '<button class="btn-del" onclick="excluirProduto(' + i + ')" title="Excluir">✕</button>' +
       '</td>';
     tbody.appendChild(tr);
   });
   if (total) total.textContent = produtos.length + ' produto(s)';
+  console.log('renderProdutos: ' + produtos.length + ' produtos renderizados');
 }
 
 function abrirFormProduto() {
