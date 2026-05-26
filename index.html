@@ -1495,7 +1495,10 @@ function goPage(id) {
   });
   renderCharts(id);
   // Renderiza produtos sempre que entrar na página
-  if (id === 'produtos') { renderProdutos(); }
+  if (id === 'produtos') {
+    renderProdutos(); // Renderiza dados locais imediatamente
+    carregarProdutosGH(); // Atualiza do GitHub em background
+  }
   if (id === 'funcionarios' || id === 'fornecedores') { /* ok */ }
 }
 
@@ -3630,8 +3633,9 @@ async function carregarProdutosGH() {
     if (data.produtos && data.produtos.length) {
       produtos = data.produtos;
       localStorage.setItem(PROD_KEY, JSON.stringify(data));
+      console.log('✅ Produtos GH carregados:', produtos.length);
+      // Renderiza sempre - goPage já faz display:block antes
       renderProdutos();
-      console.log('✅ Produtos GH:', produtos.length);
     }
   } catch(e) { console.warn('carregarProdutosGH erro:', e.message); }
 }
@@ -3655,7 +3659,12 @@ function carregarProdutos() {
   } catch(e) {
     produtos = JSON.parse(JSON.stringify(produtosDefault));
   }
-  renderProdutos();
+  // renderProdutos é chamada pelo goPage quando usuário navega para a página
+  // Mas se já estiver na página, renderiza agora
+  if (document.getElementById('page-produtos') &&
+      document.getElementById('page-produtos').classList.contains('active')) {
+    renderProdutos();
+  }
 }
 
 
