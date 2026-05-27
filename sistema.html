@@ -1496,10 +1496,14 @@ function goPage(id) {
   renderCharts(id);
   // Renderiza produtos sempre que entrar na página
   if (id === 'produtos') {
-    // Garante que a página está visível antes de renderizar
     setTimeout(function() {
       renderProdutos();
-      carregarProdutosGH();
+      // Só busca GH se passou mais de 30s desde última busca
+      var ultimaBusca = parseInt(localStorage.getItem('_prod_last_fetch') || '0');
+      if (Date.now() - ultimaBusca > 30000) {
+        localStorage.setItem('_prod_last_fetch', Date.now());
+        carregarProdutosGH();
+      }
     }, 50);
   }
   if (id === 'funcionarios' || id === 'fornecedores') { /* ok */ }
@@ -3668,12 +3672,21 @@ function salvarProdutosLocal() {
   try {
     const payload = { produtos, savedAt: new Date().toLocaleString('pt-BR') };
     localStorage.setItem(PROD_KEY, JSON.stringify(payload));
+    // Atualiza hash local para polling não sobrescrever
+    localStorage.setItem('_prod_hash', produtos.map(function(p){ return p.codigo; }).join('|'));
     const total = document.getElementById('total-produtos');
     if (total) total.textContent = produtos.length + ' produto(s)';
     setStatus('⏳ Salvando produtos...', 'salvando');
     ghSaveProdutos(payload).then(function(ok) {
-      setStatus(ok ? '✅ Produtos salvos — ' + new Date().toLocaleTimeString('pt-BR') : '💾 Salvo localmente', ok ? 'ok' : 'salvando');
-    }).catch(function() {
+      if (ok) {
+        setStatus('✅ Produtos salvos — ' + new Date().toLocaleTimeString('pt-BR'), 'ok');
+        // Atualiza hash após save bem-sucedido
+        localStorage.setItem('_prod_hash', produtos.map(function(p){ return p.codigo; }).join('|'));
+      } else {
+        setStatus('⚠️ Erro ao salvar produtos no servidor', 'erro');
+      }
+    }).catch(function(e) {
+      console.error('ghSaveProdutos catch:', e);
       setStatus('💾 Salvo localmente', 'salvando');
     });
   } catch(e) { console.error('salvarProdutosLocal:', e); }
@@ -3708,14 +3721,29 @@ async function carregarProdutosGH() {
     );
     if (!res.ok) return;
     const d = await res.json();
-    const data = JSON.parse(atob(d.content.replace(/\n/g,'')));
-    if (data.produtos && data.produtos.length) {
-      produtos = data.produtos;
-      localStorage.setItem(PROD_KEY, JSON.stringify(data));
-      console.log('✅ Produtos GH carregados:', produtos.length);
-      // Renderiza sempre - goPage já faz display:block antes
-      renderProdutos();
+    // Decodifica UTF-8 corretamente
+    const b64 = d.content.replace(/\n/g, '');
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const data = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+
+    if (!data.produtos || !data.produtos.length) return;
+
+    // Compara hash para não sobrescrever mudanças locais recentes
+    const ghHash = data.produtos.map(function(p){ return p.codigo; }).join('|');
+    const localHash = localStorage.getItem('_prod_hash') || '';
+
+    if (ghHash === localHash && produtos.length === data.produtos.length) {
+      console.log('Produtos GH: sem mudanças');
+      return;
     }
+
+    produtos = data.produtos;
+    localStorage.setItem(PROD_KEY, JSON.stringify(data));
+    localStorage.setItem('_prod_hash', ghHash);
+    console.log('✅ Produtos GH carregados:', produtos.length);
+    renderProdutos();
   } catch(e) { console.warn('carregarProdutosGH erro:', e.message); }
 }
 
