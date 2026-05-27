@@ -718,29 +718,35 @@
     </div>
 
     <!-- KPIs -->
-    <div class="kpi-grid">
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);">
       <div class="kpi-card verde">
-        <div class="kpi-label">Peças Conformes</div>
-        <div class="kpi-value verde" id="kpi-boas">13.298</div>
+        <div class="kpi-label">Peças Boas</div>
+        <div class="kpi-value verde" id="kpi-boas">—</div>
         <div class="kpi-sub">Unidades produzidas</div>
-        <div class="kpi-badge badge-up">↑ Meta: 15.000</div>
+        <div class="kpi-badge badge-up" id="kpi-boas-badge">↑ Meta: 15.000</div>
       </div>
       <div class="kpi-card vermelho">
-        <div class="kpi-label">Peças Rejeitadas</div>
-        <div class="kpi-value vermelho" id="kpi-refugo">247</div>
-        <div class="kpi-sub">Não conformes</div>
-        <div class="kpi-badge badge-down">↓ 1,82% refugo</div>
+        <div class="kpi-label">Refugo</div>
+        <div class="kpi-value vermelho" id="kpi-refugo">—</div>
+        <div class="kpi-sub">Peças não conformes</div>
+        <div class="kpi-badge badge-down" id="kpi-refugo-badge">— %</div>
+      </div>
+      <div class="kpi-card amarelo">
+        <div class="kpi-label">Quebra</div>
+        <div class="kpi-value amarelo" id="kpi-quebra">—</div>
+        <div class="kpi-sub" id="kpi-quebra-sub">% sobre peças boas</div>
+        <div class="kpi-badge badge-down" id="kpi-quebra-badge">— %</div>
       </div>
       <div class="kpi-card azul">
         <div class="kpi-label">Índice de Qualidade</div>
-        <div class="kpi-value azul" id="kpi-qual">98,2%</div>
+        <div class="kpi-value azul" id="kpi-qual">—</div>
         <div class="kpi-sub">Meta: 85%</div>
-        <div class="kpi-badge badge-up">✓ Acima da meta</div>
+        <div class="kpi-badge badge-up" id="kpi-qual-badge">✓ Acima da meta</div>
       </div>
-      <div class="kpi-card amarelo">
+      <div class="kpi-card" style="border-top:3px solid #a78bfa;">
         <div class="kpi-label">Receita Estimada</div>
-        <div class="kpi-value amarelo" id="kpi-receita">R$4.612</div>
-        <div class="kpi-sub">Custo unit. médio: R$0,347</div>
+        <div class="kpi-value" style="color:#a78bfa;" id="kpi-receita">—</div>
+        <div class="kpi-sub" id="kpi-receita-sub">Custo unit. médio</div>
         <div class="kpi-badge badge-up">↑ vs mês anterior</div>
       </div>
     </div>
@@ -1716,14 +1722,31 @@ function atualizarDashboard() {
   const m = calcularMetricas();
 
   // KPIs
-  const kpiBoas = document.getElementById('kpi-boas');
-  const kpiRef  = document.getElementById('kpi-refugo');
-  const kpiQual = document.getElementById('kpi-qual');
-  const kpiRec  = document.getElementById('kpi-receita');
-  if (kpiBoas) kpiBoas.textContent = m.totalBoas.toLocaleString('pt-BR');
-  if (kpiRef)  kpiRef.textContent  = m.totalRefugo.toLocaleString('pt-BR');
-  if (kpiQual) kpiQual.textContent = m.qualPct.toFixed(1).replace('.',',') + '%';
-  if (kpiRec)  kpiRec.textContent  = 'R$' + m.receita.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const el = function(id) { return document.getElementById(id); };
+
+  // Calcula quebra total
+  var totalQuebra = 0;
+  document.querySelectorAll('#tbody-ordens tr').forEach(function(tr) {
+    totalQuebra += parseInt(tr.dataset.quebra || '0') || 0;
+  });
+  var pctQuebra = m.totalBoas > 0 ? ((totalQuebra / m.totalBoas) * 100) : 0;
+  var pctRefugo = (m.totalBoas + m.totalRefugo) > 0 ? ((m.totalRefugo / (m.totalBoas + m.totalRefugo)) * 100) : 0;
+
+  if (el('kpi-boas'))         el('kpi-boas').textContent         = m.totalBoas.toLocaleString('pt-BR');
+  if (el('kpi-refugo'))       el('kpi-refugo').textContent       = m.totalRefugo.toLocaleString('pt-BR');
+  if (el('kpi-refugo-badge')) el('kpi-refugo-badge').textContent = pctRefugo.toFixed(2).replace('.',',') + '% refugo';
+  if (el('kpi-quebra'))       el('kpi-quebra').textContent       = totalQuebra.toLocaleString('pt-BR');
+  if (el('kpi-quebra-sub'))   el('kpi-quebra-sub').textContent   = pctQuebra.toFixed(2).replace('.',',') + '% sobre boas';
+  if (el('kpi-quebra-badge')) el('kpi-quebra-badge').textContent = (pctQuebra > 0 ? '↓ ' : '') + pctQuebra.toFixed(2).replace('.',',') + '%';
+  if (el('kpi-qual')) {
+    el('kpi-qual').textContent = m.qualPct.toFixed(1).replace('.',',') + '%';
+    if (el('kpi-qual-badge')) {
+      el('kpi-qual-badge').textContent = m.qualPct >= 85 ? '✓ Acima da meta' : '✗ Abaixo da meta';
+      el('kpi-qual-badge').className = 'kpi-badge ' + (m.qualPct >= 85 ? 'badge-up' : 'badge-down');
+    }
+  }
+  if (el('kpi-receita'))     el('kpi-receita').textContent     = 'R$' + m.receita.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (el('kpi-receita-sub')) el('kpi-receita-sub').textContent = 'Receita calculada';
 
   // Gráfico produção mensal
   mkChart('chartProducao', 'bar', {
